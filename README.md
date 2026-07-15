@@ -15,7 +15,7 @@ VS Code / Cursor extension for managing **Apple container machines** (`container
 - macOS 26+ on Apple Silicon
 - [Apple `container` CLI](https://github.com/apple/container) installed (`container` in `PATH`)
 - Container system running: `container system start`
-- [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) extension for SSH connections
+- [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) extension for SSH connections (in Cursor: `anysphere.remote-ssh`)
 
 ## Usage
 
@@ -24,8 +24,11 @@ VS Code / Cursor extension for managing **Apple container machines** (`container
 3. Use inline actions or the context menu:
    - **Start** — boots a stopped machine (`container machine run -n <id> -d -- true`)
    - **Stop** — stops a running machine
-   - **Connect via SSH** — opens a new remote window via Remote SSH
+   - **Connect via SSH** — pick or enter a username, then open a Remote SSH window as `user@ip`
+   - **Copy IP** — copy the machine IP to the clipboard
 4. Click **Refresh** in the view title to update the list manually.
+
+SSH usernames are stored in the extension global storage folder and offered again on later connects.
 
 ## Configuration
 

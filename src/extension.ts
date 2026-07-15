@@ -9,12 +9,14 @@ import {
   resolveMachineId,
 } from './machinesTree';
 import { connectViaSsh } from './sshConnect';
+import { SshUsernameStore } from './sshUsernames';
 
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   const cli = new ContainerCliService();
   const treeProvider = new MachinesTreeProvider(cli);
+  const usernameStore = new SshUsernameStore(context);
 
   const treeView = vscode.window.createTreeView('apple-containers.machines', {
     treeDataProvider: treeProvider,
@@ -91,7 +93,34 @@ export function activate(context: vscode.ExtensionContext): void {
           return;
         }
 
-        await connectViaSsh(cli, machine);
+        await connectViaSsh(cli, machine, usernameStore);
+      },
+    ),
+    vscode.commands.registerCommand(
+      'apple-containers.copyIp',
+      async (item?: MachineTreeItem, id?: string) => {
+        const machineId = resolveMachineId(item, id);
+        if (!machineId) {
+          return;
+        }
+
+        let machine = item?.machine ?? treeProvider.getMachine(machineId);
+        if (!machine) {
+          await refresh(true);
+          machine = treeProvider.getMachine(machineId);
+        }
+
+        if (!machine?.ipAddress) {
+          vscode.window.showWarningMessage(
+            `Machine "${machineId}" has no IP address.`,
+          );
+          return;
+        }
+
+        await vscode.env.clipboard.writeText(machine.ipAddress);
+        vscode.window.showInformationMessage(
+          `Copied IP: ${machine.ipAddress}`,
+        );
       },
     ),
     vscode.commands.registerCommand('apple-containers.startSystem', async () => {

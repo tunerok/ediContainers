@@ -56,6 +56,10 @@
         "icon": "$(remote)"
       },
       {
+        "command": "apple-containers.copyIp",
+        "title": "Copy IP"
+      },
+      {
         "command": "apple-containers.startSystem",
         "title": "Start Container System"
       }
@@ -71,33 +75,38 @@
       "view/item/context": [
         {
           "command": "apple-containers.start",
-          "when": "view == apple-containers.machines && viewItem == machineStopped",
+          "when": "view == apple-containers.machines && viewItem =~ /machineStopped/",
           "group": "inline@1"
         },
         {
           "command": "apple-containers.stop",
-          "when": "view == apple-containers.machines && viewItem == machineRunning",
+          "when": "view == apple-containers.machines && viewItem =~ /machineRunning/",
           "group": "inline@2"
         },
         {
           "command": "apple-containers.connectSsh",
-          "when": "view == apple-containers.machines && viewItem == machineRunning",
+          "when": "view == apple-containers.machines && viewItem =~ /machineRunning/",
           "group": "inline@3"
         },
         {
           "command": "apple-containers.start",
-          "when": "view == apple-containers.machines && viewItem == machineStopped",
+          "when": "view == apple-containers.machines && viewItem =~ /machineStopped/",
           "group": "1_actions@1"
         },
         {
           "command": "apple-containers.stop",
-          "when": "view == apple-containers.machines && viewItem == machineRunning",
+          "when": "view == apple-containers.machines && viewItem =~ /machineRunning/",
           "group": "1_actions@2"
         },
         {
           "command": "apple-containers.connectSsh",
-          "when": "view == apple-containers.machines && viewItem == machineRunning",
+          "when": "view == apple-containers.machines && viewItem =~ /machineRunning/",
           "group": "1_actions@3"
+        },
+        {
+          "command": "apple-containers.copyIp",
+          "when": "view == apple-containers.machines && viewItem =~ /machineHasIp/",
+          "group": "1_actions@4"
         }
       ]
     },

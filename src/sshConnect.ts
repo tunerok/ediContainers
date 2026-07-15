@@ -1,12 +1,33 @@
 import * as vscode from 'vscode';
 import { ContainerCliService, ContainerMachine } from './containerCli';
 import { resolveSshUser } from './machinesTree';
+import { SshUsernameStore, promptSshUsername } from './sshUsernames';
 
-const REMOTE_SSH_EXTENSION_ID = 'ms-vscode-remote.remote-ssh';
+const REMOTE_SSH_EXTENSION_IDS = [
+  'anysphere.remote-ssh',
+  'ms-vscode-remote.remote-ssh',
+] as const;
+
+function findRemoteSshExtension(): vscode.Extension<unknown> | undefined {
+  for (const id of REMOTE_SSH_EXTENSION_IDS) {
+    const extension = vscode.extensions.getExtension(id);
+    if (extension) {
+      return extension;
+    }
+  }
+  return undefined;
+}
+
+function getPreferredRemoteSshExtensionId(): string {
+  return vscode.env.appName.toLowerCase().includes('cursor')
+    ? 'anysphere.remote-ssh'
+    : 'ms-vscode-remote.remote-ssh';
+}
 
 export async function connectViaSsh(
   cli: ContainerCliService,
   machine: ContainerMachine,
+  usernameStore: SshUsernameStore,
 ): Promise<void> {
   if (machine.status !== 'running') {
     const start = 'Start';
@@ -28,18 +49,19 @@ export async function connectViaSsh(
     return;
   }
 
-  const remoteSshExtension = vscode.extensions.getExtension(REMOTE_SSH_EXTENSION_ID);
+  const remoteSshExtension = findRemoteSshExtension();
   if (!remoteSshExtension) {
-    const install = 'Install Remote SSH';
+    const install = 'Open Extensions';
     const choice = await vscode.window.showErrorMessage(
       'Remote SSH extension is required to connect.',
       install,
     );
 
     if (choice === install) {
+      const extensionId = getPreferredRemoteSshExtensionId();
       await vscode.commands.executeCommand(
-        'workbench.extensions.installExtension',
-        REMOTE_SSH_EXTENSION_ID,
+        'workbench.extensions.search',
+        `@id:${extensionId}`,
       );
     }
     return;
@@ -49,11 +71,21 @@ export async function connectViaSsh(
     await remoteSshExtension.activate();
   }
 
-  const username = await resolveSshUser(cli, machine);
+  const suggested = await resolveSshUser(cli, machine);
+  const username = await promptSshUsername(usernameStore, suggested);
+  if (!username) {
+    return;
+  }
+
   const remoteAuthority = `ssh-remote+${username}@${machine.ipAddress}`;
 
-  await vscode.commands.executeCommand('vscode.newWindow', {
-    remoteAuthority,
-    reuseWindow: false,
-  });
+  try {
+    await vscode.commands.executeCommand('vscode.newWindow', {
+      remoteAuthority,
+      reuseWindow: false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`Failed to open Remote SSH window: ${message}`);
+  }
 }

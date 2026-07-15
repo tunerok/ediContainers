@@ -21,7 +21,12 @@ export class MachineTreeItem extends vscode.TreeItem {
         ? new vscode.ThemeColor('charts.green')
         : new vscode.ThemeColor('descriptionForeground'),
     );
-    this.contextValue = isRunning ? 'machineRunning' : 'machineStopped';
+    this.contextValue = [
+      isRunning ? 'machineRunning' : 'machineStopped',
+      machine.ipAddress ? 'machineHasIp' : undefined,
+    ]
+      .filter(Boolean)
+      .join(' ');
   }
 }
 
