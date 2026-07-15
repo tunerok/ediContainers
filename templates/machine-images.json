@@ -1,0 +1,36 @@
+{
+  "templates": [
+    {
+      "id": "ubuntu",
+      "label": "Ubuntu",
+      "description": "Ubuntu + systemd + SSH (root/root)",
+      "baseImage": "ubuntu:24.04",
+      "localTag": "edi-containers/ubuntu-ssh:local",
+      "enabled": true
+    },
+    {
+      "id": "debian",
+      "label": "Debian",
+      "description": "Debian Bookworm + systemd + SSH (root/root)",
+      "baseImage": "debian:bookworm",
+      "localTag": "edi-containers/debian-ssh:local",
+      "enabled": true
+    },
+    {
+      "id": "alpine",
+      "label": "Alpine",
+      "description": "Alpine + OpenRC + SSH + Node (root/root)",
+      "baseImage": "alpine:3.21",
+      "localTag": "edi-containers/alpine-ssh:v7",
+      "enabled": true
+    },
+    {
+      "id": "kali",
+      "label": "Kali Linux",
+      "description": "Kali Rolling + systemd + SSH (root/root)",
+      "baseImage": "kalilinux/kali-rolling:latest",
+      "localTag": "edi-containers/kali-ssh:v3",
+      "enabled": true
+    }
+  ]
+}

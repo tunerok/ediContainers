@@ -4,6 +4,9 @@ import * as vscode from 'vscode';
 
 const execFileAsync = promisify(execFile);
 
+const DEFAULT_TIMEOUT_MS = 60_000;
+const BUILD_TIMEOUT_MS = 15 * 60_000;
+
 export interface ContainerMachine {
   id: string;
   status: string;
@@ -37,7 +40,7 @@ export class ContainerSystemError extends Error {
 export class ContainerCliService {
   private getBinary(): string {
     return vscode.workspace
-      .getConfiguration('appleContainers')
+      .getConfiguration('ediContainers')
       .get<string>('containerPath', 'container');
   }
 
@@ -51,21 +54,33 @@ export class ContainerCliService {
     );
   }
 
-  private async run(args: string[]): Promise<string> {
+  private async run(
+    args: string[],
+    options?: { timeoutMs?: number },
+  ): Promise<string> {
     const binary = this.getBinary();
+    const timeout = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
     try {
       const { stdout } = await execFileAsync(binary, args, {
         encoding: 'utf8',
         env: process.env,
-        maxBuffer: 10 * 1024 * 1024,
+        maxBuffer: 20 * 1024 * 1024,
+        timeout,
       });
       return stdout.trim();
     } catch (error) {
       const execError = error as NodeJS.ErrnoException & {
         stderr?: string;
         stdout?: string;
+        killed?: boolean;
       };
+
+      if (execError.killed) {
+        throw new Error(
+          `Command timed out after ${Math.round(timeout / 1000)}s: ${binary} ${args.join(' ')}`,
+        );
+      }
 
       const message = [
         execError.stderr?.trim(),
@@ -110,4 +125,83 @@ export class ContainerCliService {
   async startSystem(): Promise<void> {
     await this.run(['system', 'start']);
   }
+
+  async createMachine(image: string, name: string): Promise<void> {
+    await this.run(['machine', 'create', image, '--name', name], {
+      timeoutMs: BUILD_TIMEOUT_MS,
+    });
+  }
+
+  async deleteMachine(id: string): Promise<void> {
+    await this.run(['machine', 'delete', id]);
+  }
+
+  async buildImage(
+    contextPath: string,
+    tag: string,
+    buildArgs?: Record<string, string>,
+  ): Promise<void> {
+    const args = ['build', '--tag', tag];
+    if (buildArgs) {
+      for (const [key, value] of Object.entries(buildArgs)) {
+        args.push('--build-arg', `${key}=${value}`);
+      }
+    }
+    args.push(contextPath);
+    await this.run(args, { timeoutMs: BUILD_TIMEOUT_MS });
+  }
+
+  async imageExists(tag: string): Promise<boolean> {
+    try {
+      const output = await this.run(['image', 'list', '--format', 'json']);
+      if (!output) {
+        return false;
+      }
+      const parsed = JSON.parse(output) as unknown;
+      if (!Array.isArray(parsed)) {
+        return output.includes(tag);
+      }
+      return parsed.some((entry) => imageEntryMatchesTag(entry, tag));
+    } catch {
+      try {
+        await this.run(['image', 'inspect', tag]);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+}
+
+function imageEntryMatchesTag(entry: unknown, tag: string): boolean {
+  if (!entry || typeof entry !== 'object') {
+    return false;
+  }
+  const item = entry as Record<string, unknown>;
+  const candidates = [
+    item.reference,
+    item.Reference,
+    item.name,
+    item.Name,
+    item.tag,
+    item.Tag,
+    item.id,
+    item.ID,
+  ];
+  if (typeof item.repository === 'string' && typeof item.tag === 'string') {
+    candidates.push(`${item.repository}:${item.tag}`);
+  }
+  if (Array.isArray(item.names)) {
+    candidates.push(...item.names);
+  }
+  if (Array.isArray(item.Names)) {
+    candidates.push(...item.Names);
+  }
+  return candidates.some(
+    (value) => typeof value === 'string' && valueIncludesTag(value, tag),
+  );
+}
+
+function valueIncludesTag(value: string, tag: string): boolean {
+  return value === tag || value.endsWith(`/${tag}`) || value.includes(tag);
 }

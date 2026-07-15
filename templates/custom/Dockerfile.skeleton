@@ -1,0 +1,16 @@
+# Custom Apple container machine image.
+# This file is yours — presets (Ubuntu/Debian/Alpine/Kali) are separate and untouched.
+#
+# Requirements for `container machine`:
+#   - working /sbin/init (systemd or OpenRC)
+#   - for Cursor Remote SSH: openssh + AllowTcpForwarding yes (+ bash; on Alpine also libstdc++/nodejs)
+#
+# Build context: this directory only.
+
+FROM ubuntu:24.04
+
+# Example: install what you need yourself.
+# RUN apt-get update && apt-get install -y --no-install-recommends systemd sudo openssh-server \
+#     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+CMD ["/lib/systemd/systemd"]

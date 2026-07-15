@@ -37,7 +37,7 @@ export async function connectViaSsh(
     );
 
     if (choice === start) {
-      await vscode.commands.executeCommand('apple-containers.start', machine.id);
+      await vscode.commands.executeCommand('edi-containers.start', machine.id);
     }
     return;
   }

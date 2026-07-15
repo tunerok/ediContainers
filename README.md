@@ -1,11 +1,14 @@
-# Apple Containers
+# ediContainers
 
 VS Code / Cursor extension for managing **Apple container machines** (`container machine`).
 
 ## Features
 
+- Create machines from presets (Ubuntu, Debian, Alpine, Kali) with SSH + sudo preconfigured (`root` / `root`)
+- **Custom Dockerfile** path for hand-written images (does not touch preset Dockerfiles / BASE_IMAGE injection)
+- Edit which base images/versions to pull via a user JSON settings file
 - List container machines with status and IP address
-- Start and stop machines from the sidebar
+- Start, stop, and delete machines from the sidebar
 - Connect to a running machine via **Remote SSH**
 - Auto-refresh with configurable interval
 - Start the container system when it is not running
@@ -19,23 +22,53 @@ VS Code / Cursor extension for managing **Apple container machines** (`container
 
 ## Usage
 
-1. Open the **Apple Containers** view in the Activity Bar.
-2. Machines appear with `status · IP` in the description.
-3. Use inline actions or the context menu:
-   - **Start** — boots a stopped machine (`container machine run -n <id> -d -- true`)
+1. Open the **ediContainers** view in the Activity Bar.
+2. Click **+** (**Create Machine**): pick a preset **or Custom Dockerfile**, enter a name. Presets build with injected `BASE_IMAGE`; Custom builds your file as-is.
+3. Machines appear with `status · IP` in the description.
+4. Use inline actions or the context menu:
+   - **Start** — boots a stopped machine
    - **Stop** — stops a running machine
-   - **Connect via SSH** — pick or enter a username, then open a Remote SSH window as `user@ip`
+   - **Connect via SSH** — pick or enter a username, then open a Remote SSH window as `user@ip` (preset machines: `root` / `root`)
    - **Copy IP** — copy the machine IP to the clipboard
-4. Click **Refresh** in the view title to update the list manually.
+   - **Delete Machine** — stop (if needed) and delete
+5. Click the gear (**Edit Machine Image Settings**) to change preset base image tags/versions. Use **Edit Custom Dockerfile** (or the Custom item in Create) for a fully manual image.
+6. Click **Refresh** to update the list manually.
+
+### Custom Dockerfile
+
+Presets stay opinionated (SSH `root`/`root`, systemd/OpenRC, etc.). For full control:
+
+1. **Create Machine → Custom Dockerfile** (or command **Edit Custom Dockerfile**).
+2. Edit the file in extension global storage (created once from a minimal skeleton; never overwritten).
+3. **Build & Create** → choose image tag → machine name.
+
+No `--build-arg BASE_IMAGE` is passed. Rebuild triggers when the Dockerfile content changes.
 
 SSH usernames are stored in the extension global storage folder and offered again on later connects.
+
+### Machine image settings
+
+Defaults ship in `templates/machine-images.json`. On first use a copy is written to the extension global storage. Edit that copy (via the gear command) to change what gets pulled, for example:
+
+```json
+{
+  "id": "ubuntu",
+  "label": "Ubuntu",
+  "description": "Ubuntu + systemd + SSH (root/root)",
+  "baseImage": "ubuntu:22.04",
+  "localTag": "edi-containers/ubuntu-ssh:local",
+  "enabled": true
+}
+```
+
+Set `"enabled": false` to hide a template from Create. After changing `baseImage`, the next Create rebuilds that local tag.
 
 ## Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `appleContainers.containerPath` | `container` | Path to the Apple container CLI |
-| `appleContainers.refreshInterval` | `8000` | Auto-refresh interval in ms (0 to disable) |
+| `ediContainers.containerPath` | `container` | Path to the Apple container CLI |
+| `ediContainers.refreshInterval` | `8000` | Auto-refresh interval in ms (0 to disable) |
 
 ## Development
 
@@ -69,8 +102,8 @@ npm run package
 Install the generated `.vsix` file:
 
 ```bash
-code --install-extension apple-containers-0.1.0.vsix
-cursor --install-extension apple-containers-0.1.0.vsix
+cursor --install-extension edi-containers-0.2.0.vsix
+code --install-extension edi-containers-0.2.0.vsix
 ```
 
 ## CLI mapping
@@ -81,6 +114,9 @@ cursor --install-extension apple-containers-0.1.0.vsix
 | Inspect | `container machine inspect <id>` |
 | Stop | `container machine stop <id>` |
 | Start | `container machine run -n <id> -d -- true` |
+| Create | `container machine create <image> --name <name>` |
+| Delete | `container machine delete <id>` |
+| Build template | `container build --tag <tag> --build-arg BASE_IMAGE=… <templateDir>` |
 | Start system | `container system start` |
 
 ## License
