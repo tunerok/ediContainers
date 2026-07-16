@@ -2,6 +2,10 @@
 
 VS Code / Cursor extension for managing **Apple container machines** (`container machine`).
 
+![Create Machine — choose a preset or Custom Dockerfile](img/1.png)
+
+![Machines list — status, IP, and machine details](img/2.png)
+
 ## Features
 
 - Create machines from presets (Ubuntu, Debian, Alpine, Kali) with SSH + sudo preconfigured (`root` / `root`)
@@ -22,7 +26,19 @@ VS Code / Cursor extension for managing **Apple container machines** (`container
 
 ## Installation
 
-Prebuilt `.vsix` releases are published on GitHub — no `npm` / compile required.
+### Cursor Marketplace
+
+In **Cursor**: open Extensions (`Cmd+Shift+X`), search for **ediContainers** (or `tunerok.edi-containers`), and click **Install**.
+
+Extension page: [open-vsx.org/extension/tunerok/edi-containers](https://open-vsx.org/extension/tunerok/edi-containers)
+
+```bash
+cursor --install-extension tunerok.edi-containers
+```
+
+### From GitHub Release (VSIX)
+
+Prebuilt `.vsix` releases are also on GitHub — no `npm` / compile required.
 
 1. Open [Releases](https://github.com/tunerok/apple-containers/releases) and download `edi-containers-*.vsix` (e.g. `edi-containers-0.2.1.vsix`).
 2. Install in one of these ways:
@@ -42,13 +58,6 @@ cursor --install-extension ~/Downloads/edi-containers-0.2.1.vsix
 
 # VS Code
 code --install-extension ~/Downloads/edi-containers-0.2.1.vsix
-```
-
-Or download the asset from the latest release, then install the local file (CLI cannot resolve a version-agnostic `.vsix` name automatically):
-
-```bash
-# open latest release in browser, download edi-containers-*.vsix, then:
-cursor --install-extension ~/Downloads/edi-containers-0.2.1.vsix
 ```
 
 After install, open the **ediContainers** icon in the Activity Bar.
