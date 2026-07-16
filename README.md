@@ -20,6 +20,39 @@ VS Code / Cursor extension for managing **Apple container machines** (`container
 - Container system running: `container system start`
 - [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) extension for SSH connections (in Cursor: `anysphere.remote-ssh`)
 
+## Installation
+
+Prebuilt `.vsix` releases are published on GitHub — no `npm` / compile required.
+
+1. Open [Releases](https://github.com/tunerok/apple-containers/releases) and download `edi-containers-*.vsix` (e.g. `edi-containers-0.2.0.vsix`).
+2. Install in one of these ways:
+
+**Cursor / VS Code UI**
+
+1. Open Extensions (`Cmd+Shift+X`).
+2. Click `…` (top of the Extensions view) → **Install from VSIX…**
+3. Select the downloaded `.vsix` file.
+4. Reload the window if prompted.
+
+**CLI**
+
+```bash
+# Cursor
+cursor --install-extension ~/Downloads/edi-containers-0.2.0.vsix
+
+# VS Code
+code --install-extension ~/Downloads/edi-containers-0.2.0.vsix
+```
+
+Or download the asset from the latest release, then install the local file (CLI cannot resolve a version-agnostic `.vsix` name automatically):
+
+```bash
+# open latest release in browser, download edi-containers-*.vsix, then:
+cursor --install-extension ~/Downloads/edi-containers-0.2.0.vsix
+```
+
+After install, open the **ediContainers** icon in the Activity Bar.
+
 ## Usage
 
 1. Open the **ediContainers** view in the Activity Bar.
@@ -95,16 +128,14 @@ Press **F5** in VS Code/Cursor to launch an Extension Development Host.
 
 ## Build VSIX
 
+For maintainers (end users should use [Installation](#installation) from Releases):
+
 ```bash
+npm install
 npm run package
 ```
 
-Install the generated `.vsix` file:
-
-```bash
-cursor --install-extension edi-containers-0.2.0.vsix
-code --install-extension edi-containers-0.2.0.vsix
-```
+This produces `edi-containers-<version>.vsix` in the repo root. Attach it to a GitHub Release for others to install.
 
 ## CLI mapping
 

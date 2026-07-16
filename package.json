@@ -3,8 +3,12 @@
   "displayName": "ediContainers",
   "description": "Manage Apple container machines: create from templates, start/stop, delete, and connect via Remote SSH",
   "version": "0.2.0",
-  "publisher": "artem",
+  "publisher": "tunerok",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tunerok/apple-containers.git"
+  },
   "engines": {
     "vscode": "^1.74.0"
   },
