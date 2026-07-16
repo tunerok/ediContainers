@@ -24,7 +24,7 @@ VS Code / Cursor extension for managing **Apple container machines** (`container
 
 Prebuilt `.vsix` releases are published on GitHub — no `npm` / compile required.
 
-1. Open [Releases](https://github.com/tunerok/apple-containers/releases) and download `edi-containers-*.vsix` (e.g. `edi-containers-0.2.0.vsix`).
+1. Open [Releases](https://github.com/tunerok/apple-containers/releases) and download `edi-containers-*.vsix` (e.g. `edi-containers-0.2.1.vsix`).
 2. Install in one of these ways:
 
 **Cursor / VS Code UI**
@@ -38,17 +38,17 @@ Prebuilt `.vsix` releases are published on GitHub — no `npm` / compile require
 
 ```bash
 # Cursor
-cursor --install-extension ~/Downloads/edi-containers-0.2.0.vsix
+cursor --install-extension ~/Downloads/edi-containers-0.2.1.vsix
 
 # VS Code
-code --install-extension ~/Downloads/edi-containers-0.2.0.vsix
+code --install-extension ~/Downloads/edi-containers-0.2.1.vsix
 ```
 
 Or download the asset from the latest release, then install the local file (CLI cannot resolve a version-agnostic `.vsix` name automatically):
 
 ```bash
 # open latest release in browser, download edi-containers-*.vsix, then:
-cursor --install-extension ~/Downloads/edi-containers-0.2.0.vsix
+cursor --install-extension ~/Downloads/edi-containers-0.2.1.vsix
 ```
 
 After install, open the **ediContainers** icon in the Activity Bar.

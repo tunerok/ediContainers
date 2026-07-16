@@ -2,7 +2,7 @@
   "name": "edi-containers",
   "displayName": "ediContainers",
   "description": "Manage Apple container machines: create from templates, start/stop, delete, and connect via Remote SSH",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "tunerok",
   "license": "MIT",
   "icon": "media/icon.png",

@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.1] - 2026-07-16
+
+- Marketplace metadata: icon, keywords, banner, changelog, repository links
+
 ## [0.2.0] - 2026-07-16
 
 - Create machines from presets (Ubuntu, Debian, Alpine, Kali) with SSH preconfigured
@@ -8,7 +12,6 @@
 - Start, stop, delete machines from the sidebar
 - Connect via Remote SSH; remember usernames
 - Copy machine IP; auto-refresh; start container system when needed
-- Marketplace metadata: icon, keywords, banner, changelog
 
 ## [0.1.0]
 
