@@ -5,6 +5,27 @@
   "version": "0.2.0",
   "publisher": "tunerok",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1C1C1E",
+    "theme": "dark"
+  },
+  "keywords": [
+    "apple",
+    "container",
+    "containers",
+    "vm",
+    "machine",
+    "ssh",
+    "remote",
+    "macos",
+    "apple silicon",
+    "docker"
+  ],
+  "homepage": "https://github.com/tunerok/apple-containers",
+  "bugs": {
+    "url": "https://github.com/tunerok/apple-containers/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/tunerok/apple-containers.git"
