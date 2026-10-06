@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import {
+  ContainerCliMissingError,
   ContainerCliService,
+  ContainerPluginError,
   ContainerSystemError,
 } from './containerCli';
 import {
@@ -15,7 +17,14 @@ import {
 import { connectViaSsh } from './sshConnect';
 import { SshUsernameStore } from './sshUsernames';
 
+const INSTALL_PAGE = 'https://github.com/apple/container/releases';
+const INSTALL_COMMAND = 'brew install --cask container';
+const SYSTEM_TOGGLE_COOLDOWN_MS = 3_000;
+
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
+let systemUnlockTimer: ReturnType<typeof setTimeout> | undefined;
+let missingCliPrompted = false;
+let systemBusy = false;
 
 export function activate(context: vscode.ExtensionContext): void {
   const cli = new ContainerCliService();
@@ -30,7 +39,28 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(treeView);
 
-  const updateTreeMessage = (): void => {
+  const updateTreeMessage = (error?: unknown): void => {
+    if (error instanceof ContainerCliMissingError) {
+      treeView.message = `Apple container CLI was not found ("${error.binary}"). Install it, then start the system.`;
+      return;
+    }
+
+    if (error instanceof ContainerPluginError) {
+      treeView.message =
+        'Apple container install looks broken. Reinstall the container CLI.';
+      return;
+    }
+
+    if (error instanceof ContainerSystemError) {
+      treeView.message = 'Container system is not started.';
+      return;
+    }
+
+    if (error) {
+      treeView.message = error instanceof Error ? error.message : String(error);
+      return;
+    }
+
     treeView.message =
       treeProvider.getMachines().length === 0
         ? 'No container machines found. Use + to create one from a template.'
@@ -42,9 +72,20 @@ export function activate(context: vscode.ExtensionContext): void {
       await treeProvider.load();
       treeProvider.refresh();
       updateTreeMessage();
+      setSystemRunning(true);
     } catch (error) {
-      if (showError) {
-        await handleCliError(cli, error);
+      updateTreeMessage(error);
+      treeProvider.refresh();
+      if (isCliStateError(error)) {
+        setSystemRunning(false);
+      }
+      const showMissing =
+        error instanceof ContainerCliMissingError && !missingCliPrompted;
+      if (showMissing) {
+        missingCliPrompted = true;
+      }
+      if (showError || showMissing) {
+        await handleCliError(error);
       }
     }
   };
@@ -62,7 +103,6 @@ export function activate(context: vscode.ExtensionContext): void {
         }
 
         await runMachineAction(
-          cli,
           treeProvider,
           updateTreeMessage,
           `Starting ${machineId}...`,
@@ -79,7 +119,6 @@ export function activate(context: vscode.ExtensionContext): void {
         }
 
         await runMachineAction(
-          cli,
           treeProvider,
           updateTreeMessage,
           `Stopping ${machineId}...`,
@@ -135,13 +174,69 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     ),
     vscode.commands.registerCommand('edi-containers.startSystem', async () => {
-      await runMachineAction(
-        cli,
-        treeProvider,
-        updateTreeMessage,
-        'Starting container system...',
-        () => cli.startSystem(),
-      );
+      if (!lockSystemToggle()) {
+        return;
+      }
+
+      try {
+        const started = await runMachineAction(
+          treeProvider,
+          updateTreeMessage,
+          'Starting container system...',
+          () => cli.startSystem(),
+        );
+        setSystemRunning(started, true);
+      } finally {
+        scheduleSystemToggleUnlock();
+      }
+    }),
+    vscode.commands.registerCommand('edi-containers.stopSystem', async () => {
+      if (!lockSystemToggle()) {
+        return;
+      }
+
+      let cancelled = false;
+      try {
+        const confirm = await vscode.window.showWarningMessage(
+          'Stop the Apple container system? Running machines will stop.',
+          { modal: true },
+          'Stop',
+        );
+        if (confirm !== 'Stop') {
+          cancelled = true;
+          return;
+        }
+
+        try {
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Stopping container system...',
+              cancellable: false,
+            },
+            () => cli.stopSystem(),
+          );
+          treeProvider.markSystemStopped();
+          treeView.message = 'Container system is stopped.';
+          treeProvider.refresh();
+          setSystemRunning(false, true);
+        } catch (error) {
+          if (error instanceof ContainerSystemError) {
+            setSystemRunning(false, true);
+          }
+          if (isCliStateError(error)) {
+            updateTreeMessage(error);
+            treeProvider.refresh();
+          }
+          await handleCliError(error);
+        }
+      } finally {
+        if (cancelled) {
+          releaseSystemToggleLock();
+        } else {
+          scheduleSystemToggleUnlock();
+        }
+      }
     }),
     vscode.commands.registerCommand('edi-containers.createMachine', async () => {
       await createMachineFromTemplate(
@@ -170,7 +265,6 @@ export function activate(context: vscode.ExtensionContext): void {
         }
 
         await runMachineAction(
-          cli,
           treeProvider,
           updateTreeMessage,
           `Deleting ${machineId}...`,
@@ -199,6 +293,8 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  setSystemRunning(false);
+  setSystemBusy(false);
   void imagesConfig.ensureUserConfig();
   configureAutoRefresh(context, () => refresh(false));
   void refresh(false);
@@ -209,6 +305,10 @@ export function deactivate(): void {
     clearInterval(refreshTimer);
     refreshTimer = undefined;
   }
+  if (systemUnlockTimer) {
+    clearTimeout(systemUnlockTimer);
+    systemUnlockTimer = undefined;
+  }
 }
 
 async function createMachineFromTemplate(
@@ -216,13 +316,13 @@ async function createMachineFromTemplate(
   imagesConfig: MachineImagesConfigService,
   usernameStore: SshUsernameStore,
   treeProvider: MachinesTreeProvider,
-  updateTreeMessage: () => void,
+  updateTreeMessage: (error?: unknown) => void,
 ): Promise<void> {
   let templates: MachineImageTemplate[];
   try {
     templates = await imagesConfig.loadTemplates(true);
   } catch (error) {
-    await handleCliError(cli, error);
+    await handleCliError(error);
     return;
   }
 
@@ -332,7 +432,10 @@ async function createMachineFromTemplate(
       `Machine "${machineName}" created. SSH: root / root`,
     );
   } catch (error) {
-    await handleCliError(cli, error);
+    if (isCliStateError(error)) {
+      updateTreeMessage(error);
+    }
+    await handleCliError(error);
   }
 }
 
@@ -340,7 +443,7 @@ async function createMachineFromCustomDockerfile(
   cli: ContainerCliService,
   imagesConfig: MachineImagesConfigService,
   treeProvider: MachinesTreeProvider,
-  updateTreeMessage: () => void,
+  updateTreeMessage: (error?: unknown) => void,
 ): Promise<void> {
   const dockerfilePath = await imagesConfig.ensureCustomDockerfile();
   await imagesConfig.openCustomDockerfile();
@@ -421,7 +524,10 @@ async function createMachineFromCustomDockerfile(
       `Machine "${machineName}" created from custom Dockerfile (${imageTag}).`,
     );
   } catch (error) {
-    await handleCliError(cli, error);
+    if (isCliStateError(error)) {
+      updateTreeMessage(error);
+    }
+    await handleCliError(error);
   }
 }
 
@@ -476,12 +582,11 @@ function configureAutoRefresh(
 }
 
 async function runMachineAction(
-  cli: ContainerCliService,
   treeProvider: MachinesTreeProvider,
-  updateTreeMessage: () => void,
+  updateTreeMessage: (error?: unknown) => void,
   progressTitle: string,
   action: () => Promise<void>,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await vscode.window.withProgress(
       {
@@ -494,19 +599,111 @@ async function runMachineAction(
     await treeProvider.load();
     treeProvider.refresh();
     updateTreeMessage();
+    return true;
   } catch (error) {
-    await handleCliError(cli, error);
+    if (isCliStateError(error)) {
+      updateTreeMessage(error);
+      treeProvider.refresh();
+    }
+    await handleCliError(error);
+    return false;
   }
 }
 
-async function handleCliError(
-  cli: ContainerCliService,
-  error: unknown,
-): Promise<void> {
+function setSystemRunning(running: boolean, force = false): void {
+  if (systemBusy && !force) {
+    return;
+  }
+  void vscode.commands.executeCommand(
+    'setContext',
+    'ediContainers.systemRunning',
+    running,
+  );
+}
+
+function setSystemBusy(busy: boolean): void {
+  systemBusy = busy;
+  void vscode.commands.executeCommand(
+    'setContext',
+    'ediContainers.systemBusy',
+    busy,
+  );
+}
+
+function lockSystemToggle(): boolean {
+  if (systemBusy) {
+    return false;
+  }
+  if (systemUnlockTimer) {
+    clearTimeout(systemUnlockTimer);
+    systemUnlockTimer = undefined;
+  }
+  setSystemBusy(true);
+  return true;
+}
+
+function scheduleSystemToggleUnlock(): void {
+  if (systemUnlockTimer) {
+    clearTimeout(systemUnlockTimer);
+  }
+  systemUnlockTimer = setTimeout(() => {
+    systemUnlockTimer = undefined;
+    setSystemBusy(false);
+  }, SYSTEM_TOGGLE_COOLDOWN_MS);
+}
+
+function releaseSystemToggleLock(): void {
+  if (systemUnlockTimer) {
+    clearTimeout(systemUnlockTimer);
+    systemUnlockTimer = undefined;
+  }
+  setSystemBusy(false);
+}
+
+function isCliStateError(error: unknown): boolean {
+  return (
+    error instanceof ContainerCliMissingError ||
+    error instanceof ContainerPluginError ||
+    error instanceof ContainerSystemError
+  );
+}
+
+async function handleCliError(error: unknown): Promise<void> {
+  if (error instanceof ContainerCliMissingError) {
+    const openPage = 'Open Install Page';
+    const copyCommand = 'Copy Install Command';
+    const choice = await vscode.window.showErrorMessage(
+      `Apple container CLI was not found ("${error.binary}"). Install it with "${INSTALL_COMMAND}", or download the signed .pkg from the Apple container releases. Then run "container system start".`,
+      openPage,
+      copyCommand,
+    );
+
+    if (choice === openPage) {
+      await vscode.env.openExternal(vscode.Uri.parse(INSTALL_PAGE));
+    } else if (choice === copyCommand) {
+      await vscode.env.clipboard.writeText(INSTALL_COMMAND);
+      vscode.window.showInformationMessage(`Copied: ${INSTALL_COMMAND}`);
+    }
+    return;
+  }
+
+  if (error instanceof ContainerPluginError) {
+    const openPage = 'Open Install Page';
+    const choice = await vscode.window.showErrorMessage(
+      'Apple container install looks broken (plugin missing). Reinstall the container CLI, then run container system start.',
+      openPage,
+    );
+
+    if (choice === openPage) {
+      await vscode.env.openExternal(vscode.Uri.parse(INSTALL_PAGE));
+    }
+    return;
+  }
+
   if (error instanceof ContainerSystemError) {
     const startSystem = 'Start System';
     const choice = await vscode.window.showErrorMessage(
-      'Apple container system is not running or the CLI is unavailable.',
+      'Container system is not started.',
       startSystem,
     );
 

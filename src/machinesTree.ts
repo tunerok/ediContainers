@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import {
   ContainerCliService,
   ContainerMachine,
+  ContainerSystemError,
   MachineInspect,
 } from './containerCli';
 
@@ -76,6 +77,7 @@ export class MachinesTreeProvider
 
   private machines: ContainerMachine[] = [];
   private loadError: string | undefined;
+  private systemStopped = false;
 
   constructor(private readonly cli: ContainerCliService) {}
 
@@ -87,21 +89,37 @@ export class MachinesTreeProvider
     return element;
   }
 
+  markSystemStopped(): void {
+    this.machines = [];
+    this.loadError = undefined;
+    this.systemStopped = true;
+  }
+
   async load(): Promise<ContainerMachine[]> {
     try {
       this.machines = await this.cli.listMachines();
       this.loadError = undefined;
+      this.systemStopped = false;
       return this.machines;
     } catch (error) {
       this.machines = [];
       this.loadError = error instanceof Error ? error.message : String(error);
+      this.systemStopped = error instanceof ContainerSystemError;
       throw error;
     }
   }
 
   async getChildren(): Promise<MachineTreeItem[]> {
-    const machines = await this.load();
-    return machines.map((machine) => new MachineTreeItem(machine));
+    if (this.systemStopped) {
+      return [];
+    }
+
+    try {
+      const machines = await this.load();
+      return machines.map((machine) => new MachineTreeItem(machine));
+    } catch {
+      return [];
+    }
   }
 
   getMachine(id: string): ContainerMachine | undefined {

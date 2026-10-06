@@ -15,13 +15,14 @@ VS Code / Cursor extension for managing **Apple container machines** (`container
 - Start, stop, and delete machines from the sidebar
 - Connect to a running machine via **Remote SSH**
 - Auto-refresh with configurable interval
-- Start the container system when it is not running
+- Start and stop the container system from the Machines view
+- Explain how to install the CLI when `container` is not found
 
 ## Requirements
 
 - macOS 26+ on Apple Silicon
-- [Apple `container` CLI](https://github.com/apple/container) installed (`container` in `PATH`)
-- Container system running: `container system start`
+- [Apple `container` CLI](https://github.com/apple/container) installed (`container` in `PATH`). If it is missing, the view explains how to install it (`brew install --cask container`, or the signed package from [GitHub releases](https://github.com/apple/container/releases))
+- Container system running. Start or stop it from the Machines view, or with `container system start` / `container system stop`
 - [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) extension for SSH connections (in Cursor: `anysphere.remote-ssh`)
 
 ## Installation
@@ -40,7 +41,7 @@ cursor --install-extension tunerok.edi-containers
 
 Prebuilt `.vsix` releases are also on GitHub — no `npm` / compile required.
 
-1. Open [Releases](https://github.com/tunerok/apple-containers/releases) and download `edi-containers-*.vsix` (e.g. `edi-containers-0.2.1.vsix`).
+1. Open [Releases](https://github.com/tunerok/apple-containers/releases) and download `edi-containers-*.vsix` (e.g. `edi-containers-0.2.2.vsix`).
 2. Install in one of these ways:
 
 **Cursor / VS Code UI**
@@ -54,10 +55,10 @@ Prebuilt `.vsix` releases are also on GitHub — no `npm` / compile required.
 
 ```bash
 # Cursor
-cursor --install-extension ~/Downloads/edi-containers-0.2.1.vsix
+cursor --install-extension ~/Downloads/edi-containers-0.2.2.vsix
 
 # VS Code
-code --install-extension ~/Downloads/edi-containers-0.2.1.vsix
+code --install-extension ~/Downloads/edi-containers-0.2.2.vsix
 ```
 
 After install, open the **ediContainers** icon in the Activity Bar.
@@ -75,6 +76,7 @@ After install, open the **ediContainers** icon in the Activity Bar.
    - **Delete Machine** — stop (if needed) and delete
 5. Click the gear (**Edit Machine Image Settings**) to change preset base image tags/versions. Use **Edit Custom Dockerfile** (or the Custom item in Create) for a fully manual image.
 6. Click **Refresh** to update the list manually.
+7. The system button in the view toolbar starts the Apple container service, then switches to **Stop Container System**. Stopping asks for confirmation because running machines stop with it. The button stays disabled during the action and for a few seconds after, so it cannot be clicked repeatedly.
 
 ### Custom Dockerfile
 
@@ -157,7 +159,8 @@ This produces `edi-containers-<version>.vsix` in the repo root. Attach it to a G
 | Create | `container machine create <image> --name <name>` |
 | Delete | `container machine delete <id>` |
 | Build template | `container build --tag <tag> --build-arg BASE_IMAGE=… <templateDir>` |
-| Start system | `container system start` |
+| Start system | `container system start --enable-kernel-install` |
+| Stop system | `container system stop` |
 
 ## License
 

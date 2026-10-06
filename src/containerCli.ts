@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_TIMEOUT_MS = 60_000;
+const SYSTEM_START_TIMEOUT_MS = 5 * 60_000;
 const BUILD_TIMEOUT_MS = 15 * 60_000;
 
 export interface ContainerMachine {
@@ -37,6 +38,23 @@ export class ContainerSystemError extends Error {
   }
 }
 
+export class ContainerCliMissingError extends Error {
+  constructor(
+    public readonly binary: string,
+    message?: string,
+  ) {
+    super(message ?? `Apple container CLI was not found ("${binary}").`);
+    this.name = 'ContainerCliMissingError';
+  }
+}
+
+export class ContainerPluginError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ContainerPluginError';
+  }
+}
+
 export class ContainerCliService {
   private getBinary(): string {
     return vscode.workspace
@@ -48,10 +66,17 @@ export class ContainerCliService {
     const lower = message.toLowerCase();
     return (
       lower.includes('system services are not running') ||
-      lower.includes('plugin') ||
-      lower.includes('not found') ||
-      lower.includes('enoent')
+      lower.includes('xpc connection error') ||
+      lower.includes('container system service has been started')
     );
+  }
+
+  private isPluginError(message: string): boolean {
+    return message.toLowerCase().includes('plugin');
+  }
+
+  private isMissingBinary(code: string | undefined, message: string): boolean {
+    return code === 'ENOENT' || message.toLowerCase().includes('enoent');
   }
 
   private async run(
@@ -90,7 +115,20 @@ export class ContainerCliService {
         .filter(Boolean)
         .join('\n');
 
-      if (execError.code === 'ENOENT' || this.isSystemError(message)) {
+      if (this.isMissingBinary(execError.code, message)) {
+        throw new ContainerCliMissingError(
+          binary,
+          message || `Apple container CLI was not found ("${binary}").`,
+        );
+      }
+
+      if (this.isPluginError(message)) {
+        throw new ContainerPluginError(
+          message || `Apple container install looks broken ("${binary}").`,
+        );
+      }
+
+      if (this.isSystemError(message)) {
         throw new ContainerSystemError(message || `Failed to run ${binary}`);
       }
 
@@ -123,7 +161,13 @@ export class ContainerCliService {
   }
 
   async startSystem(): Promise<void> {
-    await this.run(['system', 'start']);
+    await this.run(['system', 'start', '--enable-kernel-install'], {
+      timeoutMs: SYSTEM_START_TIMEOUT_MS,
+    });
+  }
+
+  async stopSystem(): Promise<void> {
+    await this.run(['system', 'stop']);
   }
 
   async createMachine(image: string, name: string): Promise<void> {

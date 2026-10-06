@@ -2,7 +2,7 @@
   "name": "edi-containers",
   "displayName": "ediContainers",
   "description": "Manage Apple container machines: create from templates, start/stop, delete, and connect via Remote SSH",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "tunerok",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -106,7 +106,15 @@
       },
       {
         "command": "edi-containers.startSystem",
-        "title": "Start Container System"
+        "title": "Start Container System",
+        "icon": "$(debug-start)",
+        "enablement": "!ediContainers.systemBusy"
+      },
+      {
+        "command": "edi-containers.stopSystem",
+        "title": "Stop Container System",
+        "icon": "$(debug-stop)",
+        "enablement": "!ediContainers.systemBusy"
       }
     ],
     "menus": {
@@ -130,6 +138,16 @@
           "command": "edi-containers.refresh",
           "when": "view == edi-containers.machines",
           "group": "navigation@4"
+        },
+        {
+          "command": "edi-containers.startSystem",
+          "when": "view == edi-containers.machines && !ediContainers.systemRunning",
+          "group": "navigation@5"
+        },
+        {
+          "command": "edi-containers.stopSystem",
+          "when": "view == edi-containers.machines && ediContainers.systemRunning",
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [

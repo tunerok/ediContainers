@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.2] - 2026-10-06
+
+- Start and stop the Apple container system from the Machines view
+- Explain how to install the CLI when `container` is not found
+
 ## [0.2.1] - 2026-07-16
 
 - Marketplace metadata: icon, keywords, banner, changelog, repository links
